@@ -111,6 +111,55 @@ class OpenHands {
   }
 
   /**
+   * Submit conversation feedback with rating
+   * @param conversationId The conversation ID
+   * @param rating The rating (1-5)
+   * @param eventId Optional event ID this feedback corresponds to
+   * @param reason Optional reason for the rating
+   * @returns Response from the feedback endpoint
+   */
+  static async submitConversationFeedback(
+    conversationId: string,
+    rating: number,
+    eventId?: number,
+    reason?: string,
+  ): Promise<{ status: string; message: string }> {
+    const url = `/feedback/conversation`;
+    const payload = {
+      conversation_id: conversationId,
+      event_id: eventId,
+      rating,
+      reason,
+      metadata: { source: "likert-scale" },
+    };
+    const { data } = await openHands.post<{ status: string; message: string }>(
+      url,
+      payload,
+    );
+    return data;
+  }
+
+  /**
+   * Check if feedback exists for a specific conversation and event
+   * @param conversationId The conversation ID
+   * @param eventId The event ID to check
+   * @returns Whether feedback exists for this conversation and event
+   */
+  static async checkFeedbackExists(
+    conversationId: string,
+    eventId: number,
+  ): Promise<boolean> {
+    try {
+      const url = `/feedback/conversation/${conversationId}/${eventId}`;
+      const { data } = await openHands.get<{ exists: boolean }>(url);
+      return data.exists;
+    } catch (error) {
+      // Error checking if feedback exists
+      return false;
+    }
+  }
+
+  /**
    * Authenticate with GitHub token
    * @returns Response with authentication status and user info if successful
    */
