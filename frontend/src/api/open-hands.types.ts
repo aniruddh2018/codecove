@@ -102,3 +102,19 @@ export interface GitChangeDiff {
   modified: string;
   original: string;
 }
+
+export interface InputMetadata {
+  name: string;
+  description: string;
+}
+
+export interface Microagent {
+  name: string;
+  type: "repo" | "knowledge";
+  content: string;
+  triggers: string[];
+}
+
+export interface GetMicroagentsResponse {
+  microagents: Microagent[];
+}
