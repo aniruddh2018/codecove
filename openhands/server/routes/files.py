@@ -7,8 +7,11 @@ from fastapi import (
     HTTPException,
     Request,
     status,
+    UploadFile
 )
 from fastapi.responses import FileResponse, JSONResponse
+from openhands.events.action.files import FileWriteAction
+from openhands.storage.locations import get_conversation_event_filename, get_conversation_files_dir
 from pathspec import PathSpec
 from pathspec.patterns import GitWildMatchPattern
 from starlette.background import BackgroundTask
@@ -26,6 +29,8 @@ from openhands.runtime.base import Runtime
 from openhands.server.dependencies import get_dependencies
 from openhands.server.file_config import (
     FILES_TO_IGNORE,
+    get_unique_filename,
+    sanitize_filename,
 )
 from openhands.server.shared import (
     ConversationStoreImpl,
@@ -308,3 +313,39 @@ async def get_cwd(
         cwd = os.path.join(cwd, repo_dir)
 
     return cwd
+
+@app.post('/upload-files')
+async def upload_files(
+    request: Request,
+    conversation_id: str,
+    files: list[UploadFile],
+    conversation: ServerConversation = Depends(get_conversation),
+):
+    try:
+        file_urls = []
+        runtime: Runtime =  conversation.runtime
+
+
+        for file in files:
+            file_path = os.path.join(
+                runtime.config.workspace_mount_path_in_sandbox, str(file.filename)
+            )
+            file_content = await file.read()
+            write_action = FileWriteAction(
+                # TODO: DISCUSS UTF8 encoding here
+                path=file_path, content=file_content.decode('utf-8',  errors="replace")
+            )
+            # TODO: DISCUSS file name unique issues
+            await call_sync_from_async(runtime.run_action, write_action)
+            file_urls.append(file_path)
+        return JSONResponse(status_code=status.HTTP_200_OK, content=file_urls)
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                   content={
+                'error': f'Error during file upload: {str(e)}',
+                'uploaded_files': [],
+                'skipped_files': [],
+            },
+        )
